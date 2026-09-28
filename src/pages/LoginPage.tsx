@@ -8,6 +8,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [bodyWeightKg, setBodyWeightKg] = useState('')
   const [sex, setSex] = useState<Sex>('male')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -49,9 +50,19 @@ export function LoginPage() {
         }
       } else {
         const parsedBodyWeight = Number(bodyWeightKg)
+        const trimmedDisplayName = displayName.trim()
 
-        if (!Number.isFinite(parsedBodyWeight) || parsedBodyWeight <= 0) {
-          setError('Enter a body weight greater than zero.')
+        if (trimmedDisplayName.length < 2 || trimmedDisplayName.length > 50) {
+          setError('Display name must be between 2 and 50 characters.')
+          return
+        }
+
+        if (
+          !Number.isFinite(parsedBodyWeight) ||
+          parsedBodyWeight <= 0 ||
+          parsedBodyWeight > 500
+        ) {
+          setError('Body weight must be greater than 0 and no more than 500 kg.')
           return
         }
 
@@ -61,6 +72,7 @@ export function LoginPage() {
           options: {
             emailRedirectTo: window.location.origin,
             data: {
+              display_name: trimmedDisplayName,
               body_weight_kg: parsedBodyWeight,
               sex,
             },
@@ -132,6 +144,28 @@ export function LoginPage() {
           </div>
 
           <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+            {!isSignIn && (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">
+                  Display name
+                </span>
+                <input
+                  autoComplete="name"
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                  maxLength={50}
+                  minLength={2}
+                  onChange={(event) => {
+                    setDisplayName(event.target.value)
+                    setError(null)
+                  }}
+                  placeholder="Your name"
+                  required
+                  type="text"
+                  value={displayName}
+                />
+              </label>
+            )}
+
             <label className="block">
               <span className="text-sm font-medium text-slate-700">Email</span>
               <input
@@ -178,6 +212,7 @@ export function LoginPage() {
                   <input
                     className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
                     type="number"
+                    max="500"
                     min="1"
                     step="0.1"
                     inputMode="decimal"

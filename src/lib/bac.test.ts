@@ -3,7 +3,9 @@ import {
   calculateAlcoholGrams,
   calculateMaximumDrinkPromille,
   calculatePromille,
+  calculatePromilleFromDistributionMass,
   generatePromilleTimeline,
+  generatePromilleTimelineAtInterval,
   type Drink,
 } from './bac'
 
@@ -28,6 +30,15 @@ describe('BAC calculation', () => {
 
     expect(calculateMaximumDrinkPromille(beer, 80, 'male')).toBeCloseTo(
       expected,
+      10,
+    )
+  })
+
+  it('calculates the same result from a frozen distribution mass', () => {
+    const at = minutesAfter(beerTime, 45)
+
+    expect(calculatePromilleFromDistributionMass(80 * 0.68, [beer], at)).toBeCloseTo(
+      calculatePromille(80, 'male', [beer], at),
       10,
     )
   })
@@ -88,6 +99,22 @@ describe('BAC calculation', () => {
       '2026-01-01T20:00:00.000Z',
       '2026-01-01T20:01:00.000Z',
       '2026-01-01T20:02:00.000Z',
+    ])
+  })
+
+  it('generates five-minute session points and includes the exact end', () => {
+    const timeline = generatePromilleTimelineAtInterval(
+      80 * 0.68,
+      [beer],
+      beerTime,
+      minutesAfter(beerTime, 12),
+    )
+
+    expect(timeline.map(({ timestamp }) => timestamp.toISOString())).toEqual([
+      '2026-01-01T20:00:00.000Z',
+      '2026-01-01T20:05:00.000Z',
+      '2026-01-01T20:10:00.000Z',
+      '2026-01-01T20:12:00.000Z',
     ])
   })
 

@@ -1,6 +1,5 @@
 import type { UserProfile } from '../lib/profile'
-
-export type AppRole = 'admin' | 'user'
+import type { AppRole } from '../lib/sessions'
 
 interface SettingsPageProps {
   userEmail: string
@@ -60,6 +59,7 @@ export function SettingsPage({
         </div>
 
         <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Setting label="Display name" value={profile.displayName} />
           <Setting label="Email" value={userEmail} />
           <Setting
             label="Account role"

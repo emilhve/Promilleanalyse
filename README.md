@@ -1,149 +1,152 @@
 # Promilleanalyse
 
-A minimal web app built with React, Vite, TypeScript, Tailwind CSS, and
-Supabase.
+A React, Vite, TypeScript, Tailwind CSS, and Supabase application for tracking
+estimated blood alcohol concentration during shared sessions.
 
-The repository also contains reusable, UI-independent logic for estimating
-blood alcohol concentration (promille) over time.
+Administrators create a named session, select registered users, and start it.
+Participants can then log drinks while everyone in that session sees the drink
+log and an estimated BAC graph for each participant. A session closes
+automatically 18 hours after it starts.
 
-## Prerequisites
+> This is a simplified educational estimate. Never use it to decide whether it
+> is safe or legal to drive or perform another safety-critical activity.
+
+## Requirements
 
 - Node.js 20.19+ or 22.12+
 - npm (included with Node.js)
 - A Supabase project
 
-Check your installed versions with:
-
-```bash
-node --version
-npm --version
-```
+Check your versions with `node --version` and `npm --version`.
 
 ## Install
-
-Install the project dependencies:
 
 ```bash
 npm install
 ```
 
-## BAC calculation
+## Environment configuration
 
-Run the terminal example:
-
-```bash
-npm run bac:example
-```
-
-Run the unit tests:
-
-```bash
-npm test
-```
-
-The reusable calculation functions and `Drink` model are in
-`src/lib/bac.ts`. The terminal example uses an 80 kg male and the drinks from
-the example scenario, without loading the web application.
-
-### Simplified assumptions
-
-- Pure alcohol weighs 0.789 grams per milliliter.
-- Maximum contribution uses the simplified Widmark formula: alcohol grams
-  divided by body weight and a distribution factor (0.68 male, 0.55 female).
-- Each drink absorbs linearly over 45 minutes from its own timestamp.
-- Alcohol is eliminated from the running total at a constant 0.15 promille per
-  hour while alcohol is present.
-- Results are clamped to zero and do not account for food, drinking speed,
-  health, medication, or individual metabolism.
-
-This is a simplified educational estimate. It must not be used to decide
-whether it is safe or legal to drive or perform another safety-critical task.
-
-## Configure Supabase
-
-Copy `.env.example` to `.env.local`:
-
-```bash
-cp .env.example .env.local
-```
-
-On Windows PowerShell, use:
+Create a local environment file from the committed example:
 
 ```powershell
 Copy-Item .env.example .env.local
 ```
 
-Then fill in both values in `.env.local`:
+On macOS or Linux, use `cp .env.example .env.local`.
+
+Fill in both values in `.env.local`:
 
 ```dotenv
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-key
 ```
 
-Find these values in the Supabase dashboard under your project's **Connect**
-dialog or **Settings > API Keys**. Use a publishable key in this client-side
-application; never place a Supabase secret key in a `VITE_` environment
-variable.
+Find these values in the Supabase dashboard's **Connect** dialog or under
+**Settings > API Keys**. Only use the publishable key in this browser app.
+Never put a secret key, service-role key, or database password in a `VITE_`
+variable. Local environment files are ignored by Git.
 
-Restart the development server after changing environment variables.
+Restart Vite after changing environment variables.
 
-### Authentication and users
+## Supabase setup
 
-The app uses Supabase Auth for email/password registration and sign-in. Users
-created from the **Create account** tab are stored by Supabase in its protected
-`auth.users` schema; no separate public users table or schema change is needed
-for authentication.
+The database migration is in
+`supabase/migrations/202609280001_session_tracking.sql`. It creates profiles,
+sessions, participant snapshots, drinks, RLS policies, server-side operations,
+the Auth profile trigger, and Realtime publication entries.
 
-Body weight and the sex/distribution choice are collected during registration
-and stored in the user's Supabase Auth `user_metadata`. The calculator loads
-those values after sign-in instead of asking for them again. Existing accounts
-without this metadata receive a one-time profile setup screen.
+The repository is configured for the Supabase CLI. To link a new checkout and
+apply pending migrations:
 
-Signed-in users can view their email, account role, weight, and calculation sex
-on the read-only **Settings** page. These values are not displayed in the
-calculator or shared navigation.
+```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+```
+
+The current hosted project has already received the included migration. More
+database details and SQL Editor instructions are in `supabase/README.md`.
+
+### Authentication configuration
 
 In the Supabase dashboard:
 
-1. Open **Authentication > Sign In / Providers** and ensure the Email provider
-   is enabled.
-2. Decide whether new users must confirm their email. Hosted projects normally
-   enable confirmation by default.
-3. Under **Authentication > URL Configuration**, set the Site URL and add the
-   local development URL (normally `http://localhost:5173`) as an allowed
-   redirect URL.
-4. View and manage registered accounts under **Authentication > Users**.
+1. Enable Email under **Authentication > Sign In / Providers**.
+2. Choose whether registration requires email confirmation.
+3. Under **Authentication > URL Configuration**, set the Site URL and add your
+   development URL, normally `http://localhost:5173`, as a redirect URL.
+4. Create accounts through the app. Registration collects a display name,
+   weight, and calculation sex once. Existing accounts receive the same
+   one-time setup after sign-in.
 
-For production email confirmations, configure a custom SMTP provider rather
-than relying on Supabase's limited default email service.
+Profiles are stored in `public.profiles` and are read-only in the app after
+completion. The calculation uses distribution factor `0.68` for male and
+`0.55` for female.
 
-### Database migrations
+### Make a user an administrator
 
-The session database schema is versioned under `supabase/migrations`. See
-`supabase/README.md` for SQL Editor and Supabase CLI application instructions.
+Create the account first, then run this in the Supabase SQL Editor with your
+own email address:
 
-## Development
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+  || '{"app_role":"admin"}'::jsonb
+where lower(email) = lower('your-email@example.com');
+```
 
-Start the Vite development server:
+Sign out and sign back in afterward so the refreshed access token contains the
+admin role. All other accounts default to the user role. Admin authorization is
+also checked in the database; hiding admin controls in the UI is not the only
+protection.
+
+## Run locally
 
 ```bash
 npm run dev
 ```
 
-Open the local URL shown in the terminal. The home page lets a user enter body
-details and multiple drinks, including amount, alcohol percentage, and
-consumption time, then calculates the estimate using the reusable BAC module.
+Open the URL printed by Vite. The workflow is:
 
-## Production build
+1. Register or sign in.
+2. An admin creates a draft and selects participants.
+3. The admin starts the session, beginning its exact 18-hour lifetime.
+4. Participants log amount in mL and ABV. The database supplies the timestamp.
+5. Realtime updates refresh the shared drink log and per-person graphs. BAC
+   timelines are recalculated on five-minute boundaries.
 
-Type-check and create a production build:
+## Build and tests
+
+Type-check and build the production application:
 
 ```bash
 npm run build
 ```
 
-To preview the built application locally:
+Run the calculation unit tests:
 
 ```bash
-npm run preview
+npm test
 ```
+
+Run the terminal-only BAC example:
+
+```bash
+npm run bac:example
+```
+
+Preview the production build with `npm run preview`.
+
+## Calculation assumptions
+
+- Pure alcohol grams: `volume_ml * (abv / 100) * 0.789`.
+- Maximum promille: alcohol grams divided by body weight and the selected
+  distribution factor.
+- Each drink absorbs linearly over 45 minutes from its own timestamp.
+- Alcohol is eliminated at a constant `0.15 ‰` per hour while present.
+- Results never go below zero.
+- Estimates do not account for food, drinking speed, health, medication, or
+  individual metabolism.
+
+Reusable calculation functions are in `src/lib/bac.ts`.

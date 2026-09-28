@@ -1,17 +1,24 @@
 import type { Sex } from './bac'
+import type { ProfileRow } from './database.types'
 
 export interface UserProfile {
+  userId: string
+  displayName: string
   bodyWeightKg: number
   sex: Sex
 }
 
-export function readUserProfile(
-  metadata: Record<string, unknown>,
-): UserProfile | null {
-  const bodyWeightKg = Number(metadata.body_weight_kg)
-  const sex = metadata.sex
+export function readUserProfile(profile: ProfileRow | null): UserProfile | null {
+  if (!profile) {
+    return null
+  }
+
+  const bodyWeightKg = Number(profile.body_weight_kg)
+  const displayName = profile.display_name?.trim()
+  const sex = profile.sex
 
   if (
+    !displayName ||
     !Number.isFinite(bodyWeightKg) ||
     bodyWeightKg <= 0 ||
     (sex !== 'male' && sex !== 'female')
@@ -19,5 +26,10 @@ export function readUserProfile(
     return null
   }
 
-  return { bodyWeightKg, sex }
+  return {
+    userId: profile.user_id,
+    displayName,
+    bodyWeightKg,
+    sex,
+  }
 }

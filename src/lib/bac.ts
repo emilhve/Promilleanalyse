@@ -56,7 +56,18 @@ export function calculateMaximumDrinkPromille(
   validateBodyWeight(bodyWeightKg)
   const distributionFactor = resolveDistributionFactor(sexOrDistributionFactor)
 
-  return calculateAlcoholGrams(drink) / (bodyWeightKg * distributionFactor)
+  return calculateMaximumDrinkPromilleFromDistributionMass(
+    drink,
+    bodyWeightKg * distributionFactor,
+  )
+}
+
+export function calculateMaximumDrinkPromilleFromDistributionMass(
+  drink: Drink,
+  distributionMassKg: number,
+): number {
+  validateDistributionMass(distributionMassKg)
+  return calculateAlcoholGrams(drink) / distributionMassKg
 }
 
 /**
@@ -74,6 +85,19 @@ export function calculatePromille(
 ): number {
   validateBodyWeight(bodyWeightKg)
   const distributionFactor = resolveDistributionFactor(sexOrDistributionFactor)
+  return calculatePromilleFromDistributionMass(
+    bodyWeightKg * distributionFactor,
+    drinks,
+    at,
+  )
+}
+
+export function calculatePromilleFromDistributionMass(
+  distributionMassKg: number,
+  drinks: readonly Drink[],
+  at: Date,
+): number {
+  validateDistributionMass(distributionMassKg)
   const targetMs = validateDate(at, 'Calculation timestamp')
   const absorptionHours = ABSORPTION_MINUTES / 60
   const absorptionMs = ABSORPTION_MINUTES * MILLISECONDS_PER_MINUTE
@@ -82,8 +106,10 @@ export function calculatePromille(
 
   for (const drink of drinks) {
     const drinkTimestampMs = validateDate(drink.timestamp, 'Drink timestamp')
-    const maximumPromille =
-      calculateAlcoholGrams(drink) / (bodyWeightKg * distributionFactor)
+    const maximumPromille = calculateMaximumDrinkPromilleFromDistributionMass(
+      drink,
+      distributionMassKg,
+    )
     const absorptionRatePerHour = maximumPromille / absorptionHours
 
     // Starting and ending rate events let overlapping drinks absorb
@@ -179,6 +205,56 @@ export function generatePromilleTimeline(
   return timeline
 }
 
+export function generatePromilleTimelineAtInterval(
+  distributionMassKg: number,
+  drinks: readonly Drink[],
+  startTime: Date,
+  endTime: Date,
+  intervalMinutes = 5,
+): PromillePoint[] {
+  validateDistributionMass(distributionMassKg)
+  const startMs = validateDate(startTime, 'Start timestamp')
+  const endMs = validateDate(endTime, 'End timestamp')
+
+  if (endMs < startMs) {
+    throw new RangeError('End timestamp must be at or after start timestamp.')
+  }
+
+  if (!Number.isInteger(intervalMinutes) || intervalMinutes <= 0) {
+    throw new RangeError('Timeline interval must be a positive whole number.')
+  }
+
+  const intervalMs = intervalMinutes * MILLISECONDS_PER_MINUTE
+  const timeline: PromillePoint[] = []
+
+  for (let timestampMs = startMs; timestampMs <= endMs; timestampMs += intervalMs) {
+    const timestamp = new Date(timestampMs)
+    timeline.push({
+      timestamp,
+      promille: calculatePromilleFromDistributionMass(
+        distributionMassKg,
+        drinks,
+        timestamp,
+      ),
+    })
+  }
+
+  const lastPoint = timeline.at(-1)
+  if (!lastPoint || lastPoint.timestamp.getTime() !== endMs) {
+    const timestamp = new Date(endMs)
+    timeline.push({
+      timestamp,
+      promille: calculatePromilleFromDistributionMass(
+        distributionMassKg,
+        drinks,
+        timestamp,
+      ),
+    })
+  }
+
+  return timeline
+}
+
 function advancePromille(
   currentPromille: number,
   absorptionRatePerHour: number,
@@ -225,6 +301,12 @@ function resolveDistributionFactor(
 function validateBodyWeight(bodyWeightKg: number): void {
   if (!Number.isFinite(bodyWeightKg) || bodyWeightKg <= 0) {
     throw new RangeError('Body weight must be a positive number.')
+  }
+}
+
+function validateDistributionMass(distributionMassKg: number): void {
+  if (!Number.isFinite(distributionMassKg) || distributionMassKg <= 0) {
+    throw new RangeError('Distribution mass must be a positive number.')
   }
 }
 

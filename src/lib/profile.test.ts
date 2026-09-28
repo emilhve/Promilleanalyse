@@ -4,21 +4,33 @@ import { readUserProfile } from './profile'
 describe('user profile metadata', () => {
   it('reads a valid saved profile', () => {
     expect(
-      readUserProfile({ body_weight_kg: 80, sex: 'male' }),
-    ).toEqual({ bodyWeightKg: 80, sex: 'male' })
-  })
-
-  it('accepts numeric weight metadata stored as a string', () => {
-    expect(
-      readUserProfile({ body_weight_kg: '62.5', sex: 'female' }),
-    ).toEqual({ bodyWeightKg: 62.5, sex: 'female' })
+      readUserProfile({
+        user_id: 'user-1',
+        display_name: 'Emil',
+        body_weight_kg: 80,
+        sex: 'male',
+        created_at: '2026-01-01T00:00:00Z',
+        completed_at: '2026-01-01T00:00:00Z',
+      }),
+    ).toEqual({
+      userId: 'user-1',
+      displayName: 'Emil',
+      bodyWeightKg: 80,
+      sex: 'male',
+    })
   })
 
   it('rejects incomplete or invalid profile metadata', () => {
-    expect(readUserProfile({ body_weight_kg: 80 })).toBeNull()
-    expect(readUserProfile({ body_weight_kg: -1, sex: 'male' })).toBeNull()
+    expect(readUserProfile(null)).toBeNull()
     expect(
-      readUserProfile({ body_weight_kg: 80, sex: 'unsupported' }),
+      readUserProfile({
+        user_id: 'user-1',
+        display_name: null,
+        body_weight_kg: 80,
+        sex: 'male',
+        created_at: '2026-01-01T00:00:00Z',
+        completed_at: null,
+      }),
     ).toBeNull()
   })
 })

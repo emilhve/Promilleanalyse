@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from './database.types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
 const supabasePublishableKey =
@@ -17,8 +18,18 @@ export const supabaseConfigurationError = missingEnvironmentVariables.length
 
 export const supabase =
   supabaseUrl && supabasePublishableKey
-    ? createClient(supabaseUrl, supabasePublishableKey)
+    ? createClient<Database>(supabaseUrl, supabasePublishableKey)
     : null
+
+export function requireSupabase() {
+  if (!supabase) {
+    throw new Error(
+      supabaseConfigurationError ?? 'Supabase configuration is incomplete.',
+    )
+  }
+
+  return supabase
+}
 
 export interface SupabaseConnectionStatus {
   ok: boolean
